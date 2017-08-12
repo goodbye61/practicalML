@@ -1,0 +1,171 @@
+---
+title: "Practical Machine Learning Project"
+author: "Kim"
+date: "2017.8.11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis 
+
+  Nowadays, wearable devices make people easy to measure their physical status. From this 
+  functionallity, we could always check our body and can make some feedback. 
+  In general, people quantify how much of a particular activity they do, but they rarely
+  quantify how well they do it. 
+
+  
+## Dataset & Preprocessing 
+
+```{r}
+
+training <- read.csv("./practical_project/pml-training.csv")
+testing <- read.csv("./practical_project/pml-testing.csv")
+
+str(training)
+names(training[,1:7])
+
+#training[is.na(training)] <- 0
+
+``` 
+
+
+ By using 'caret' library, I split the training data in ratio 0.75 : 0.25 for cross-validation. 
+ I intended to use the 0.75 of training data for training, and 0.25 for validating and then test
+ my model fit.
+ 
+
+```{r}
+
+library(caret)
+inTrain <- createDataPartition(training$classe,
+                               p = 3/4, list = FALSE)
+train_dat <- training[inTrain , ]
+val_dat <- training[-inTrain , ]
+
+``` 
+
+ We are going to use variables with 'forearm','arm', and 'dumbell'. And use variable, 'classe' as outcome.
+ Specifically, I used those variables on 'acceleration' 
+ So, Let's extract variables. 
+
+ 
+```{r}
+
+idx<- grep("^accel|^classe", names(train_dat))
+
+train_dat <- train_dat[,idx]
+val_dat <- val_dat[,idx]
+
+```
+ 
+
+
+## Model Candidate 
+
+
+ All is ready. It is time to make model to predict. Considering outcome is factor variable, I decided to 
+ use following methods.
+  
+   fit_1. rpart 
+   fit_2. random forest
+   fit_3. gbm
+   fit_4. ensemble model. 
+   
+ 
+```{r, message = FALSE}
+
+fit_1 <- train(classe~., method = "rpart", data = train_dat)
+fit_2 <- train(classe~., method = "rf" , data = train_dat)
+fit_3 <- train(classe~., method = "gbm", data = train_dat, verbose = FALSE)
+
+p_1 <- predict(fit_1, val_dat)
+p_2 <- predict(fit_2, val_dat)
+p_3 <- predict(fit_3, val_dat)
+
+# Ensemble Model. 
+
+#predDF <- data.frame(p_1,p_2, classe <- val_dat$classe)
+#fit_4 <- train(classe ~. , method = "gam", data =predDF)
+#p_4  <- predict(fit_4, predDF)
+
+``` 
+
+ 
+  The code above describes for making 4-model I've mentioned. 
+  Now, take a look at the validation-accuracy of each results. 
+  
+  
+```{r}
+
+acc_1 <- confusionMatrix(p_1,val_dat$classe)$overall['Accuracy']
+acc_2 <- confusionMatrix(p_2,val_dat$classe)$overall['Accuracy']
+acc_3 <- confusionMatrix(p_3,val_dat$classe)$overall['Accuracy']
+#acc_4 <- confusionMatrix(p_4,val_dat$classe)$overall['Accuracy']
+
+#value <- data.frame(rpart = acc_1, rf = acc_2, gbm = acc_3, ensem = acc_4)
+value <- data.frame(rpart = acc_1, rf = acc_2, gbm = acc_3)
+value <- t(value)
+#n <- c("rpart", "rb", "gbm", "ensem")
+n<-c("rpart","rb","gbm")
+df <- data.frame(model = n)
+acc_df <- cbind(df,value)
+
+
+g <- ggplot(acc_df , aes(x=model, y=Accuracy,fill = model)) + geom_bar(stat = "identity") + ggtitle("Model Accuracy with Validation dataset")
+g
+
+``` 
+ 
+ Accuracy of method,'rpart' is 41.4%. It is relatively small comparing with random forest of which is 95%.
+ And method 'gbm' is bit lower than random forest, 81.4%.
+ Finally, ensemble model with fit_2 & fit_3 is about 40%.
+
+
+## Test 
+
+  Which model fits best on testing dataset? The result of validation is high as 
+  sequence of random forest, gbm, rpart and ensem. 
+  
+  At the beginning of the code, I loaded the testing dataset. So, let's check how 
+  our models perform.
+
+```{r}
+
+#p_t1 <- predict(fit_1, testing)
+#p_t2 <- predict(fit_2, testing)
+#p_t3 <- predict(fit_3, testing)
+#p_t4 <- predict(fit_4, testing) 
+
+``` 
+  
+  From the code above, we could get result of prediction. 
+  I chose the second model(random forest) which recorded highest accuracy. 
+  This is submitted on Coursera quiz section.
+  
+  I recorded 95% accuracy of prediction. (19/20)  
+  
+ 
+ 
+## Result
+
+  The first model, rpart, is fast to compute but has a critical flaw in accuracy.
+  In contrast, the second model and third model, random forest, are too slow and
+  complex but it record highest accuracy.
+  The ensemble model is not good as rpart model.
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
+ 
+ 
+ 
+ 
